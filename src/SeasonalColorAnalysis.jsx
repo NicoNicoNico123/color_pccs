@@ -105,7 +105,7 @@ export default function SeasonalColorAnalysis() {
     const file = e.target.files[0];
     if (file) {
       if (file.size > 4 * 1024 * 1024) {
-        setError("File size too large. Please use an image under 4MB.");
+        setError("檔案太大。請使用 4MB 以下的圖片。");
         return;
       }
       
@@ -125,11 +125,11 @@ export default function SeasonalColorAnalysis() {
     const { baseUrl, apiKey, model } = getSettings();
 
     if (!apiKey) {
-      setError("Please configure your API Key in Settings first.");
+      setError("請先在設定中配置您的 API Key。");
       return;
     }
     if (!image) {
-      setError("Please upload an image first.");
+      setError("請先上傳一張圖片。");
       return;
     }
 
@@ -194,7 +194,7 @@ export default function SeasonalColorAnalysis() {
       setResult(parsedResult);
     } catch (err) {
       console.error(err);
-      setError(`Analysis failed: ${err.message}. Check your settings and API Key.`);
+      setError(`分析失敗：${err.message}。請檢查您的設定和 API Key。`);
     } finally {
       setLoading(false);
     }
@@ -234,10 +234,10 @@ export default function SeasonalColorAnalysis() {
           <div className="text-center space-y-8">
             <div className="space-y-4">
               <h1 className="text-4xl md:text-5xl font-bold text-slate-900 tracking-tight">
-                Discover Your <span className="text-rose-500">True Colors</span>
+                發現您的 <span className="text-rose-500">真實色彩</span>
               </h1>
               <p className="text-lg text-slate-600 max-w-xl mx-auto leading-relaxed">
-                Upload a selfie and let our AI stylist analyze your skin tone, hair, and eyes to find your perfect Seasonal Color Palette.
+                上傳一張自拍照，讓我們的 AI 造型師分析您的膚色、頭髮和眼睛，找出您完美的季節色彩調色板。
               </p>
             </div>
 
@@ -250,14 +250,14 @@ export default function SeasonalColorAnalysis() {
                 `}
               >
                 {previewUrl ? (
-                  <img src={previewUrl} alt="Upload preview" className="w-full h-full object-cover" />
+                  <img src={previewUrl} alt="上傳預覽" className="w-full h-full object-cover" />
                 ) : (
                   <label className="flex flex-col items-center justify-center w-full h-full cursor-pointer group">
                     <div className="p-6 bg-rose-50 rounded-full mb-4 group-hover:bg-rose-100 transition-colors">
                       <Camera className="w-10 h-10 text-rose-500" />
                     </div>
-                    <span className="text-lg font-medium text-slate-700">Upload Your Photo</span>
-                    <span className="text-sm text-slate-400 mt-2">Recommended: Natural lighting, no makeup</span>
+                    <span className="text-lg font-medium text-slate-700">上傳您的照片</span>
+                    <span className="text-sm text-slate-400 mt-2">建議：自然光線，無化妝</span>
                     <input 
                       ref={fileInputRef}
                       type="file" 
@@ -285,14 +285,14 @@ export default function SeasonalColorAnalysis() {
                   className="mt-6 w-full bg-slate-900 hover:bg-slate-800 text-white py-4 px-8 rounded-xl font-semibold shadow-lg shadow-slate-900/20 flex items-center justify-center gap-2 transition-all transform hover:-translate-y-1"
                 >
                   <Sparkles className="w-5 h-5" />
-                  Analyze My Colors
+                  分析我的色彩
                 </button>
               )}
               
               {loading && (
                 <div className="mt-6 w-full bg-slate-100 text-slate-500 py-4 px-8 rounded-xl font-medium flex items-center justify-center gap-2 animate-pulse">
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  Analyzing with AI...
+                  正在使用 AI 分析中...
                 </div>
               )}
 
@@ -300,7 +300,7 @@ export default function SeasonalColorAnalysis() {
                 <div className="mt-6 p-4 bg-red-50 border border-red-100 rounded-xl text-red-600 text-sm flex items-start gap-2 text-left">
                   <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-bold">Error:</span> {error}
+                    <span className="font-bold">錯誤：</span> {error}
                   </div>
                 </div>
               )}
@@ -314,7 +314,7 @@ export default function SeasonalColorAnalysis() {
             {/* Header Result */}
             <div className="text-center mb-12">
               <span className="inline-block py-1 px-3 rounded-full bg-rose-100 text-rose-700 text-xs font-bold uppercase tracking-wider mb-3">
-                Analysis Complete
+                分析完成
               </span>
               <h2 className="text-5xl font-bold text-slate-900 mb-4">{result.season}</h2>
               <p className="text-slate-600 max-w-2xl mx-auto text-lg leading-relaxed">
@@ -327,10 +327,10 @@ export default function SeasonalColorAnalysis() {
               {/* Left Column: Image & Stats */}
               <div className="md:col-span-4 space-y-6">
                 <div className="rounded-3xl overflow-hidden shadow-xl aspect-[3/4] relative">
-                   <img src={previewUrl} alt="Analyzed user" className="w-full h-full object-cover" />
+                   <img src={previewUrl} alt="已分析的使用者" className="w-full h-full object-cover" />
                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-6 pt-20">
                       <div className="text-white">
-                        <p className="text-xs opacity-80 uppercase tracking-widest">Confidence</p>
+                        <p className="text-xs opacity-80 uppercase tracking-widest">信心度</p>
                         <p className="font-semibold">{result.confidence}</p>
                       </div>
                    </div>
@@ -339,19 +339,19 @@ export default function SeasonalColorAnalysis() {
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-200">
                   <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
                     <Info className="w-4 h-4 text-rose-500" />
-                    Key Characteristics
+                    關鍵特徵
                   </h3>
                   <div className="space-y-3">
                     <div className="flex justify-between items-center pb-2 border-b border-stone-100">
-                      <span className="text-slate-500 text-sm">Undertone</span>
+                      <span className="text-slate-500 text-sm">基調</span>
                       <span className="font-medium text-slate-800">{result.characteristics.undertone}</span>
                     </div>
                     <div className="flex justify-between items-center pb-2 border-b border-stone-100">
-                      <span className="text-slate-500 text-sm">Contrast</span>
+                      <span className="text-slate-500 text-sm">對比度</span>
                       <span className="font-medium text-slate-800">{result.characteristics.contrast}</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-500 text-sm">Dominant</span>
+                      <span className="text-slate-500 text-sm">主導特質</span>
                       <span className="font-medium text-slate-800">{result.characteristics.primary_feature}</span>
                     </div>
                   </div>
@@ -366,7 +366,7 @@ export default function SeasonalColorAnalysis() {
                   <div className="flex items-center justify-between mb-6">
                     <h3 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
                       <Palette className="w-6 h-6 text-rose-500" />
-                      Your Power Palette
+                      您的專屬調色板
                     </h3>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
@@ -375,7 +375,7 @@ export default function SeasonalColorAnalysis() {
                     ))}
                   </div>
                   <div className="mt-6 p-4 bg-stone-50 rounded-xl text-sm text-stone-600 italic">
-                    These colors harmonize with your natural features, making your skin look clearer and your eyes brighter.
+                    這些色彩與您的自然特徵和諧，讓您的肌膚看起來更清透，眼睛更明亮。
                   </div>
                 </div>
 
@@ -383,7 +383,7 @@ export default function SeasonalColorAnalysis() {
                 <div className="bg-slate-900 text-white p-8 rounded-3xl shadow-xl">
                   <h3 className="text-2xl font-bold mb-4 flex items-center gap-2">
                     <Shirt className="w-6 h-6 text-rose-400" />
-                    Style Guide
+                    風格指南
                   </h3>
                   <p className="text-slate-300 leading-relaxed text-lg mb-6">
                     {result.fashion_advice}
@@ -391,7 +391,7 @@ export default function SeasonalColorAnalysis() {
                   
                   {result.worst_colors && (
                     <div className="border-t border-slate-700 pt-6">
-                      <h4 className="text-sm font-semibold uppercase tracking-wider text-rose-400 mb-4">Colors to Avoid</h4>
+                      <h4 className="text-sm font-semibold uppercase tracking-wider text-rose-400 mb-4">應避免的顏色</h4>
                       <div className="flex gap-3">
                         {result.worst_colors.map((color, idx) => (
                           <div key={idx} className="flex items-center gap-2 bg-slate-800 pr-3 rounded-full">
@@ -408,7 +408,7 @@ export default function SeasonalColorAnalysis() {
                   onClick={resetApp}
                   className="w-full py-4 rounded-xl border-2 border-slate-200 text-slate-600 font-semibold hover:border-rose-500 hover:text-rose-600 transition-colors"
                 >
-                  Analyze Another Photo
+                  分析另一張照片
                 </button>
 
               </div>
