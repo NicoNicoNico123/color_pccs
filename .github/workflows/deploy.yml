@@ -44,7 +44,15 @@ jobs:
           VITE_API_KEY: ${{ secrets.VITE_API_KEY }}
           VITE_BASE_URL: ${{ secrets.VITE_BASE_URL || 'https://models.inference.ai.azure.com' }}
           VITE_MODEL: ${{ secrets.VITE_MODEL || 'gpt-4o' }}
-        run: npm run build
+        run: GITHUB_PAGES=true npm run build
+
+      - name: Verify build output
+        run: |
+          echo "Build contents:"
+          ls -la dist/
+          echo "---"
+          echo "HTML content:"
+          head -20 dist/index.html
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
