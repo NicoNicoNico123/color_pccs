@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Upload, Camera, Sparkles, Palette, Shirt, Info, AlertCircle, X, Check, Loader2 } from 'lucide-react';
 
 // Import shared settings helper
@@ -101,7 +101,11 @@ export default function SeasonalColorAnalysis() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [cameraStream, setCameraStream] = useState(null);
   const fileInputRef = useRef(null);
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
 
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
@@ -202,13 +206,77 @@ export default function SeasonalColorAnalysis() {
     }
   };
 
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          facingMode: 'user',
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        } 
+      });
+      setCameraStream(stream);
+      setIsCameraActive(true);
+      setError(null);
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (err) {
+      console.error('Error accessing camera:', err);
+      setError('無法存取相機。請確認您已授予相機權限。');
+      setIsCameraActive(false);
+    }
+  };
+
+  const stopCamera = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+      setCameraStream(null);
+      setIsCameraActive(false);
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
+    }
+  };
+
+  const capturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      const context = canvas.getContext('2d');
+      
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      const base64String = canvas.toDataURL('image/jpeg', 0.9);
+      setImage(base64String);
+      setPreviewUrl(base64String);
+      setResult(null);
+      setError(null);
+      
+      stopCamera();
+    }
+  };
+
   const resetApp = () => {
+    stopCamera();
     setImage(null);
     setPreviewUrl(null);
     setResult(null);
     setError(null);
+    setIsCameraActive(false);
     if(fileInputRef.current) fileInputRef.current.value = "";
   };
+
+  // Cleanup camera stream on unmount
+  useEffect(() => {
+    return () => {
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [cameraStream]);
 
   const ColorSwatch = ({ hex, name, reason }) => (
     <div className="flex flex-col group cursor-pointer">
@@ -244,14 +312,59 @@ export default function SeasonalColorAnalysis() {
             </div>
 
             <div className="relative max-w-md mx-auto">
+              {/* Mode Selection Buttons */}
+              {!previewUrl && !isCameraActive && (
+                <div className="mb-4 flex gap-2 justify-center">
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex-1 py-3 px-4 rounded-xl bg-white border-2 border-stone-300 hover:border-rose-400 text-slate-700 font-medium transition-all flex items-center justify-center gap-2"
+                  >
+                    <Upload className="w-5 h-5" />
+                    上傳照片
+                  </button>
+                  <button
+                    onClick={startCamera}
+                    className="flex-1 py-3 px-4 rounded-xl bg-white border-2 border-stone-300 hover:border-rose-400 text-slate-700 font-medium transition-all flex items-center justify-center gap-2"
+                  >
+                    <Camera className="w-5 h-5" />
+                    拍攝照片
+                  </button>
+                </div>
+              )}
+
               {/* Preview or Upload Box */}
               <div 
                 className={`
                   relative aspect-[4/5] rounded-3xl overflow-hidden bg-white shadow-xl border-2 border-dashed transition-all
-                  ${previewUrl ? 'border-rose-500' : 'border-stone-300 hover:border-rose-400 hover:bg-stone-50'}
+                  ${previewUrl || isCameraActive ? 'border-rose-500' : 'border-stone-300 hover:border-rose-400 hover:bg-stone-50'}
                 `}
               >
-                {previewUrl ? (
+                {isCameraActive ? (
+                  <div className="relative w-full h-full">
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 flex items-end justify-center p-6 bg-gradient-to-t from-black/60 to-transparent">
+                      <div className="flex gap-3">
+                        <button
+                          onClick={stopCamera}
+                          className="px-6 py-3 bg-white/20 backdrop-blur-sm text-white rounded-xl font-medium hover:bg-white/30 transition-all"
+                        >
+                          取消
+                        </button>
+                        <button
+                          onClick={capturePhoto}
+                          className="px-6 py-3 bg-rose-500 text-white rounded-xl font-medium hover:bg-rose-600 transition-all shadow-lg"
+                        >
+                          拍攝
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : previewUrl ? (
                   <img src={previewUrl} alt="上傳預覽" className="w-full h-full object-cover" />
                 ) : (
                   <label className="flex flex-col items-center justify-center w-full h-full cursor-pointer group">
@@ -270,7 +383,7 @@ export default function SeasonalColorAnalysis() {
                   </label>
                 )}
 
-                {previewUrl && (
+                {previewUrl && !isCameraActive && (
                   <button 
                     onClick={resetApp}
                     className="absolute top-4 right-4 bg-white/90 p-2 rounded-full text-slate-600 hover:text-red-500 shadow-lg backdrop-blur-sm"
@@ -279,6 +392,9 @@ export default function SeasonalColorAnalysis() {
                   </button>
                 )}
               </div>
+
+              {/* Hidden canvas for photo capture */}
+              <canvas ref={canvasRef} className="hidden" />
 
               {/* Action Button */}
               {previewUrl && !loading && (
