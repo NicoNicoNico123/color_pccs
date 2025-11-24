@@ -80,18 +80,18 @@ const callOpenAI = async (prompt, systemInstruction = "") => {
 // --- PCCS Data & Logic ---
 
 const TONES = [
-  { id: 'v',   name: 'Vivid',         label: '01 Vivid',         s: 100, l: 50,  desc: '純粹、飽和、鮮豔' },
-  { id: 'b',   name: 'Bright',        label: '02 Bright',        s: 85,  l: 65,  desc: '愉悅、清晰' },
-  { id: 's',   name: 'Strong',        label: '03 Strong',        s: 70,  l: 45,  desc: '動感、強烈' },
-  { id: 'dp',  name: 'Deep',          label: '04 Deep',          s: 80,  l: 30,  desc: '傳統、深奧' },
-  { id: 'lt',  name: 'Light',         label: '05 Light',         s: 55,  l: 75,  desc: '舒適、清新' },
-  { id: 'sf',  name: 'Soft',          label: '06 Soft',          s: 40,  l: 60,  desc: '溫柔、自然' },
-  { id: 'd',   name: 'Dull',          label: '07 Dull',          s: 40,  l: 45,  desc: '穩重、樸實' },
-  { id: 'dk',  name: 'Dark',          label: '08 Dark',          s: 50,  l: 25,  desc: '成熟、穩健' },
-  { id: 'p',   name: 'Pale',          label: '09 Pale',          s: 25,  l: 88,  desc: '精緻、輕盈' },
-  { id: 'ltg', name: 'Light Grayish', label: '10 Light Grayish', s: 15,  l: 70,  desc: '平靜、柔和' },
-  { id: 'g',   name: 'Grayish',       label: '11 Grayish',       s: 15,  l: 45,  desc: '寧靜、別緻' },
-  { id: 'dkg', name: 'Dark Grayish',  label: '12 Dark Grayish',  s: 10,  l: 25,  desc: '厚重、堅實' },
+  { id: 'v',   name: 'Vivid',         label: '01 Vivid',         s: 100, l: 50,  desc: '純粹、飽和、鮮豔、活力、大膽、自信、熱情、耀眼' },
+  { id: 'b',   name: 'Bright',        label: '02 Bright',        s: 85,  l: 65,  desc: '愉悅、清晰、開朗、活潑、樂觀、明亮、歡快、充滿希望' },
+  { id: 's',   name: 'Strong',        label: '03 Strong',        s: 70,  l: 45,  desc: '動感、強烈、有力、堅定、充滿能量、果斷、勇敢、積極' },
+  { id: 'dp',  name: 'Deep',          label: '04 Deep',          s: 80,  l: 30,  desc: '傳統、深奧、優雅、經典、沉穩、內斂、高貴、有深度' },
+  { id: 'lt',  name: 'Light',         label: '05 Light',         s: 55,  l: 75,  desc: '舒適、清新、輕鬆、溫和、柔和、明亮、愉悅、令人放鬆' },
+  { id: 'sf',  name: 'Soft',          label: '06 Soft',          s: 40,  l: 60,  desc: '溫柔、自然、柔和、親切、溫暖、舒適、和諧、平易近人' },
+  { id: 'd',   name: 'Dull',          label: '07 Dull',          s: 40,  l: 45,  desc: '穩重、樸實、內斂、低調、沉穩、可靠、踏實、值得信賴' },
+  { id: 'dk',  name: 'Dark',          label: '08 Dark',          s: 50,  l: 25,  desc: '成熟、穩健、優雅、神秘、深邃、莊重、有質感、經典' },
+  { id: 'p',   name: 'Pale',          label: '09 Pale',          s: 25,  l: 88,  desc: '精緻、輕盈、優雅、純淨、清新、柔和、夢幻、細膩' },
+  { id: 'ltg', name: 'Light Grayish', label: '10 Light Grayish', s: 15,  l: 70,  desc: '平靜、柔和、舒緩、溫和、寧靜、優雅、和諧、令人安心' },
+  { id: 'g',   name: 'Grayish',       label: '11 Grayish',       s: 15,  l: 45,  desc: '寧靜、別緻、優雅、沉穩、內斂、時尚、平衡、有品味' },
+  { id: 'dkg', name: 'Dark Grayish',  label: '12 Dark Grayish',  s: 10,  l: 25,  desc: '厚重、堅實、穩重、可靠、沉穩、專業、有力量、值得信賴' },
 ];
 
 const HUES = [
@@ -524,9 +524,95 @@ const Flashcard = ({ card, onGuess, showAnswer, isCorrect, selectedOption, nextC
   );
 };
 
+const ToneDescriptionFlashcard = ({ tone, onGuess, showAnswer, isCorrect, selectedDesc, nextCard }) => {
+  const options = useMemo(() => {
+    // Get all descriptions from tones
+    const allDescriptions = TONES.map(t => ({ id: t.id, desc: t.desc, label: t.label }));
+    // Get 3 random wrong descriptions
+    const distractors = allDescriptions
+      .filter(t => t.id !== tone.id)
+      .sort(() => 0.5 - Math.random())
+      .slice(0, 3);
+    // Add the correct description
+    const correctDesc = { id: tone.id, desc: tone.desc, label: tone.label };
+    return [...distractors, correctDesc].sort(() => 0.5 - Math.random());
+  }, [tone]);
+
+  // Generate a sample color for this tone (using a random hue)
+  const sampleHue = useMemo(() => {
+    return HUES[Math.floor(Math.random() * HUES.length)];
+  }, [tone]);
+
+  const sampleColor = generateColor(tone, sampleHue);
+
+  const [tipKey, setTipKey] = useState(0);
+  useEffect(() => setTipKey(k => k + 1), [tone]);
+
+  return (
+    <div className="max-w-md mx-auto w-full">
+      <div className="relative aspect-square sm:aspect-video w-full rounded-2xl shadow-xl mb-6 transition-all duration-300 transform overflow-hidden"
+           style={{ backgroundColor: sampleColor.css }}>
+        
+        {showAnswer && (
+          <div className={`absolute inset-0 flex items-center justify-center flex-col bg-black/30 backdrop-blur-sm rounded-2xl animate-in zoom-in duration-300 p-4`}>
+            {isCorrect ? (
+              <div className="bg-emerald-500 text-white p-3 rounded-full mb-2 shadow-lg scale-75">
+                <Check size={32} strokeWidth={4} />
+              </div>
+            ) : (
+              <div className="bg-red-500 text-white p-3 rounded-full mb-2 shadow-lg scale-75">
+                <X size={32} strokeWidth={4} />
+              </div>
+            )}
+            <div className="bg-white/95 w-full max-w-sm px-6 py-4 rounded-xl shadow-2xl text-center backdrop-blur-md">
+              <p className="text-[10px] uppercase tracking-wider text-slate-400 font-bold mb-1">正確答案 (Correct Answer)</p>
+              <h2 className="text-2xl font-bold text-slate-900 mb-1">{tone.label}</h2>
+              <p className="text-slate-500 text-sm mb-3">{tone.desc}</p>
+              
+              <div key={tipKey}>
+                <AIContextButton toneName={tone.name} hueName={sampleHue.name} />
+              </div>
+
+              <button 
+                onClick={nextCard}
+                className="mt-4 w-full py-3 bg-slate-900 text-white rounded-lg font-bold hover:bg-slate-800 transition-all flex items-center justify-center gap-2 shadow-lg"
+              >
+                下一個色調 <ChevronRight size={18} />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {!showAnswer && (
+        <>
+          <div className="text-center mb-6">
+            <h2 className="text-xl font-bold text-slate-800 mb-2">{tone.label}</h2>
+            <p className="text-slate-500 text-sm">選擇最符合此色調的描述。</p>
+          </div>
+          <div className="grid grid-cols-1 gap-3">
+            {options.map((opt) => (
+              <button
+                key={opt.id}
+                onClick={() => onGuess(opt.id)}
+                className="p-4 rounded-xl border-2 text-left transition-all duration-200 bg-white border-slate-200 hover:border-blue-300 hover:bg-blue-50 text-slate-700 shadow-sm hover:shadow-md"
+              >
+                <span className="text-sm leading-relaxed">{opt.desc}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
 const QuizView = () => {
+  const [quizMode, setQuizMode] = useState('color-to-tone'); // 'color-to-tone' or 'tone-to-desc'
   const [deck, setDeck] = useState([]);
+  const [toneDeck, setToneDeck] = useState([]);
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
+  const [currentToneIndex, setCurrentToneIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
   const [selectedOption, setSelectedOption] = useState(null);
   const [score, setScore] = useState(0);
@@ -536,38 +622,102 @@ const QuizView = () => {
 
   useEffect(() => {
     setDeck(generateFullDeck().sort(() => 0.5 - Math.random()));
+    setToneDeck([...TONES].sort(() => 0.5 - Math.random()));
   }, []);
 
-  const handleGuess = (toneId) => {
-    const currentCard = deck[currentCardIndex];
-    const isCorrect = toneId === currentCard.toneId;
-    setSelectedOption(toneId);
-    setShowAnswer(true);
+  // Reset quiz when mode changes
+  useEffect(() => {
+    setShowAnswer(false);
+    setSelectedOption(null);
+    setCurrentCardIndex(0);
+    setCurrentToneIndex(0);
+    setScore(0);
+    setStreak(0);
+    setHistory([]);
+    setDeck(generateFullDeck().sort(() => 0.5 - Math.random()));
+    setToneDeck([...TONES].sort(() => 0.5 - Math.random()));
+  }, [quizMode]);
 
-    if (isCorrect) {
-      setScore(s => s + 10);
-      setStreak(s => {
-        const newStreak = s + 1;
-        setBestStreak(b => Math.max(b, newStreak));
-        return newStreak;
-      });
-      setHistory(h => [...h.slice(-4), true]);
+  const handleGuess = (toneId) => {
+    if (quizMode === 'color-to-tone') {
+      const currentCard = deck[currentCardIndex];
+      const isCorrect = toneId === currentCard.toneId;
+      setSelectedOption(toneId);
+      setShowAnswer(true);
+
+      if (isCorrect) {
+        setScore(s => s + 10);
+        setStreak(s => {
+          const newStreak = s + 1;
+          setBestStreak(b => Math.max(b, newStreak));
+          return newStreak;
+        });
+        setHistory(h => [...h.slice(-4), true]);
+      } else {
+        setStreak(0);
+        setHistory(h => [...h.slice(-4), false]);
+      }
     } else {
-      setStreak(0);
-      setHistory(h => [...h.slice(-4), false]);
+      const currentTone = toneDeck[currentToneIndex];
+      const isCorrect = toneId === currentTone.id;
+      setSelectedOption(toneId);
+      setShowAnswer(true);
+
+      if (isCorrect) {
+        setScore(s => s + 10);
+        setStreak(s => {
+          const newStreak = s + 1;
+          setBestStreak(b => Math.max(b, newStreak));
+          return newStreak;
+        });
+        setHistory(h => [...h.slice(-4), true]);
+      } else {
+        setStreak(0);
+        setHistory(h => [...h.slice(-4), false]);
+      }
     }
   };
 
   const nextCard = () => {
     setShowAnswer(false);
     setSelectedOption(null);
-    setCurrentCardIndex(prev => (prev + 1) % deck.length);
+    if (quizMode === 'color-to-tone') {
+      setCurrentCardIndex(prev => (prev + 1) % deck.length);
+    } else {
+      setCurrentToneIndex(prev => (prev + 1) % toneDeck.length);
+    }
   };
 
-  if (deck.length === 0) return <div className="p-12 text-center text-slate-500">正在載入 PCCS 引擎...</div>;
+  if (deck.length === 0 || toneDeck.length === 0) {
+    return <div className="p-12 text-center text-slate-500">正在載入 PCCS 引擎...</div>;
+  }
 
   return (
     <div className="max-w-2xl mx-auto">
+      {/* Quiz Mode Selector */}
+      <div className="mb-6 bg-white rounded-xl shadow-sm border border-slate-200 p-2 flex gap-2">
+        <button
+          onClick={() => setQuizMode('color-to-tone')}
+          className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all ${
+            quizMode === 'color-to-tone'
+              ? 'bg-blue-600 text-white shadow-md'
+              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+          }`}
+        >
+          顏色 → 色調
+        </button>
+        <button
+          onClick={() => setQuizMode('tone-to-desc')}
+          className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all ${
+            quizMode === 'tone-to-desc'
+              ? 'bg-blue-600 text-white shadow-md'
+              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+          }`}
+        >
+          色調 → 描述
+        </button>
+      </div>
+
       <div className="flex items-center justify-between mb-6 bg-slate-900 text-white p-4 rounded-xl shadow-md">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-slate-800 rounded-lg">
@@ -591,14 +741,25 @@ const QuizView = () => {
         </div>
       </div>
 
-      <Flashcard 
-        card={deck[currentCardIndex]} 
-        onGuess={handleGuess}
-        showAnswer={showAnswer}
-        isCorrect={selectedOption === deck[currentCardIndex].toneId}
-        selectedOption={selectedOption}
-        nextCard={nextCard}
-      />
+      {quizMode === 'color-to-tone' ? (
+        <Flashcard 
+          card={deck[currentCardIndex]} 
+          onGuess={handleGuess}
+          showAnswer={showAnswer}
+          isCorrect={selectedOption === deck[currentCardIndex]?.toneId}
+          selectedOption={selectedOption}
+          nextCard={nextCard}
+        />
+      ) : (
+        <ToneDescriptionFlashcard
+          tone={toneDeck[currentToneIndex]}
+          onGuess={handleGuess}
+          showAnswer={showAnswer}
+          isCorrect={selectedOption === toneDeck[currentToneIndex]?.id}
+          selectedDesc={selectedOption}
+          nextCard={nextCard}
+        />
+      )}
     </div>
   );
 };
