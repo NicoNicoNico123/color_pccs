@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { BookOpen, HelpCircle, Trophy, ChevronRight, Check, X, Info, Sparkles, Bot, Loader2, ArrowRight, Settings, Save } from 'lucide-react';
+import { BookOpen, HelpCircle, Trophy, ChevronRight, Check, X, Info, Sparkles, Bot, Loader2, ArrowRight, Settings, Save, Camera } from 'lucide-react';
+import SeasonalColorAnalysis from './SeasonalColorAnalysis';
 
 // --- OpenAI / Compatible API Helper ---
 
@@ -254,6 +255,9 @@ const Header = ({ currentTab, setTab, onOpenSettings }) => (
           </button>
           <button onClick={() => setTab('ai')} className={`p-2 sm:px-3 rounded-md text-sm font-medium transition-all ${currentTab === 'ai' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'}`}>
             <Sparkles size={16} className="sm:mr-2 inline" /><span className="hidden sm:inline">AI</span>
+          </button>
+          <button onClick={() => setTab('seasonal')} className={`p-2 sm:px-3 rounded-md text-sm font-medium transition-all ${currentTab === 'seasonal' ? 'bg-rose-600 text-white' : 'text-slate-400 hover:text-white'}`}>
+            <Camera size={16} className="sm:mr-2 inline" /><span className="hidden sm:inline">季節</span>
           </button>
         </div>
         
@@ -780,6 +784,7 @@ export default function App() {
         {currentTab === 'learn' && <ReferenceView />}
         {currentTab === 'quiz' && <QuizView />}
         {currentTab === 'ai' && <AILabView />}
+        {currentTab === 'seasonal' && <SeasonalColorAnalysis />}
       </main>
 
       <SettingsModal 

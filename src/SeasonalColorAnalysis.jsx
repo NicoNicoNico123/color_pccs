@@ -1,0 +1,423 @@
+import React, { useState, useRef } from 'react';
+import { Upload, Camera, Sparkles, Palette, Shirt, Info, AlertCircle, X, Check, Loader2 } from 'lucide-react';
+
+// Import shared settings helper
+const getSettings = () => {
+  const envApiKey = import.meta.env.VITE_API_KEY || '';
+  const envBaseUrl = import.meta.env.VITE_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta/openai/';
+  const envModel = import.meta.env.VITE_MODEL || 'gemini-1.5-flash';
+
+  const saved = localStorage.getItem('pccs_app_settings');
+  
+  if (saved) {
+    const parsed = JSON.parse(saved);
+    return {
+      baseUrl: parsed.baseUrl || envBaseUrl,
+      apiKey: parsed.apiKey || envApiKey,
+      model: parsed.model || envModel
+    };
+  }
+  
+  return {
+    baseUrl: envBaseUrl,
+    apiKey: envApiKey,
+    model: envModel
+  };
+};
+
+const SYSTEM_PROMPT = `
+You are an expert Personal Stylist and Color Analyst. 
+
+Your task is to analyze the image of the person provided and determine their Seasonal Color Analysis based on the 12-season flow system.
+
+Use the following specific methodology to determine the season:
+
+PART 1: EYE PATTERN ANALYSIS (The Specific Indicator)
+
+Look closely at the iris pattern and rim:
+
+1. WINTER EYES: Look for "Wheel" or "Spokes" (lines radiating from pupil) and a distinct dark rim (limbal ring). Whites are very bright.
+
+2. SPRING EYES: Look for a "Sunburst" (golden/yellow starburst near pupil). Rim is distinct but separate from inner color. Eyes look "sparkling".
+
+3. SUMMER EYES: Look for "Cracked Glass" or "Floral Petals" (soft, cloudy texture). Rim is soft/blended/grayish. Eyes look "dreamy".
+
+4. AUTUMN EYES: Look for "Aztec Sun" or "Leopard Spots" (random rust/gold freckles). Pattern is irregular/earthy. Rim is warm.
+
+PART 2: FEATURE CONTRAST & SHAPE
+
+1. EYEBROWS: 
+   - Thick/Dark/Defined = High Contrast (Winter/Autumn/Bright Spring).
+   - Soft/Light/Ashy = Low Contrast (Summer/Light Spring/Soft Autumn).
+
+2. LIPS:
+   - High Pigment (Natural Red/Berry) = Cool (Winter/Summer).
+   - Low Pigment (Peachy/Salmon/Nude) = Warm (Spring/Autumn).
+
+3. FACE SHAPE:
+   - Sharp/Angular = Winter/Autumn.
+   - Round/Soft = Spring/Summer.
+
+Based on these features, categorize the person into one of the 12 seasons:
+- Winter: Cool Winter, Deep Winter, Clear Winter
+- Summer: Cool Summer, Soft Summer, Light Summer
+- Autumn: Warm Autumn, Soft Autumn, Deep Autumn
+- Spring: Warm Spring, Light Spring, Clear Spring
+
+Return ONLY a valid JSON object. Do not include markdown formatting like \`\`\`json.
+
+Structure:
+{
+  "season": "One of the 12 seasons listed above",
+  "confidence": "High/Medium/Low",
+  "reasoning": "Explain the decision based on Eye Pattern (e.g., did you see spokes or a sunburst?), Contrast level, and Lip pigmentation.",
+  "characteristics": {
+    "undertone": "Cool/Warm/Neutral",
+    "contrast": "High/Medium/Low",
+    "primary_feature": "e.g., Deep, Soft, Clear, Warm, Cool"
+  },
+  "palette": [
+    {"name": "Color Name", "hex": "#HEXCODE", "reason": "Why this fits"},
+    {"name": "Color Name", "hex": "#HEXCODE", "reason": "Why this fits"},
+    {"name": "Color Name", "hex": "#HEXCODE", "reason": "Why this fits"},
+    {"name": "Color Name", "hex": "#HEXCODE", "reason": "Why this fits"},
+    {"name": "Color Name", "hex": "#HEXCODE", "reason": "Why this fits"},
+    {"name": "Color Name", "hex": "#HEXCODE", "reason": "Why this fits"}
+  ],
+  "worst_colors": [
+    {"name": "Color Name", "hex": "#HEXCODE"},
+    {"name": "Color Name", "hex": "#HEXCODE"},
+    {"name": "Color Name", "hex": "#HEXCODE"}
+  ],
+  "fashion_advice": "Specific clothing advice based on their contrast level, jewelry metals (Silver vs Gold), and makeup tips."
+}
+`;
+
+export default function SeasonalColorAnalysis() {
+  const [image, setImage] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState(null);
+  const fileInputRef = useRef(null);
+
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 4 * 1024 * 1024) {
+        setError("File size too large. Please use an image under 4MB.");
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result;
+        setImage(base64String);
+        setPreviewUrl(reader.result);
+        setResult(null);
+        setError(null);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const analyzeImage = async () => {
+    const { baseUrl, apiKey, model } = getSettings();
+
+    if (!apiKey) {
+      setError("Please configure your API Key in Settings first.");
+      return;
+    }
+    if (!image) {
+      setError("Please upload an image first.");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+      const endpoint = cleanBaseUrl.includes('chat/completions') 
+        ? cleanBaseUrl 
+        : `${cleanBaseUrl}/chat/completions`;
+
+      const payload = {
+        model: model,
+        messages: [
+          {
+            role: "system",
+            content: SYSTEM_PROMPT
+          },
+          {
+            role: "user",
+            content: [
+              { type: "text", text: "Analyze this person's seasonal color palette based on the system prompt." },
+              {
+                type: "image_url",
+                image_url: {
+                  url: image
+                }
+              }
+            ]
+          }
+        ],
+        temperature: 0.4,
+        max_tokens: 1000
+      };
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error?.message || `HTTP Error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      let content = data.choices?.[0]?.message?.content;
+      
+      if (!content) {
+        throw new Error("Received empty response from API.");
+      }
+
+      const cleanJson = content.replace(/```json/g, '').replace(/```/g, '').trim();
+      const parsedResult = JSON.parse(cleanJson);
+      
+      setResult(parsedResult);
+    } catch (err) {
+      console.error(err);
+      setError(`Analysis failed: ${err.message}. Check your settings and API Key.`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetApp = () => {
+    setImage(null);
+    setPreviewUrl(null);
+    setResult(null);
+    setError(null);
+    if(fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const ColorSwatch = ({ hex, name, reason }) => (
+    <div className="flex flex-col group cursor-pointer">
+      <div 
+        className="h-20 w-full rounded-xl shadow-sm border border-gray-100 relative overflow-hidden transition-transform transform group-hover:scale-105"
+        style={{ backgroundColor: hex }}
+      >
+        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all" />
+      </div>
+      <div className="mt-2 text-center">
+        <p className="text-xs font-bold text-gray-800">{name}</p>
+        <p className="text-[10px] text-gray-500 uppercase tracking-wide">{hex}</p>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-stone-50 text-slate-900 font-sans selection:bg-rose-100">
+      
+      {/* Main Content */}
+      <main className="max-w-3xl mx-auto px-4 py-12">
+
+        {/* Hero & Upload Area */}
+        {!result && (
+          <div className="text-center space-y-8">
+            <div className="space-y-4">
+              <h1 className="text-4xl md:text-5xl font-bold text-slate-900 tracking-tight">
+                Discover Your <span className="text-rose-500">True Colors</span>
+              </h1>
+              <p className="text-lg text-slate-600 max-w-xl mx-auto leading-relaxed">
+                Upload a selfie and let our AI stylist analyze your skin tone, hair, and eyes to find your perfect Seasonal Color Palette.
+              </p>
+            </div>
+
+            <div className="relative max-w-md mx-auto">
+              {/* Preview or Upload Box */}
+              <div 
+                className={`
+                  relative aspect-[4/5] rounded-3xl overflow-hidden bg-white shadow-xl border-2 border-dashed transition-all
+                  ${previewUrl ? 'border-rose-500' : 'border-stone-300 hover:border-rose-400 hover:bg-stone-50'}
+                `}
+              >
+                {previewUrl ? (
+                  <img src={previewUrl} alt="Upload preview" className="w-full h-full object-cover" />
+                ) : (
+                  <label className="flex flex-col items-center justify-center w-full h-full cursor-pointer group">
+                    <div className="p-6 bg-rose-50 rounded-full mb-4 group-hover:bg-rose-100 transition-colors">
+                      <Camera className="w-10 h-10 text-rose-500" />
+                    </div>
+                    <span className="text-lg font-medium text-slate-700">Upload Your Photo</span>
+                    <span className="text-sm text-slate-400 mt-2">Recommended: Natural lighting, no makeup</span>
+                    <input 
+                      ref={fileInputRef}
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      onChange={handleImageUpload} 
+                    />
+                  </label>
+                )}
+
+                {previewUrl && (
+                  <button 
+                    onClick={resetApp}
+                    className="absolute top-4 right-4 bg-white/90 p-2 rounded-full text-slate-600 hover:text-red-500 shadow-lg backdrop-blur-sm"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Action Button */}
+              {previewUrl && !loading && (
+                <button
+                  onClick={analyzeImage}
+                  className="mt-6 w-full bg-slate-900 hover:bg-slate-800 text-white py-4 px-8 rounded-xl font-semibold shadow-lg shadow-slate-900/20 flex items-center justify-center gap-2 transition-all transform hover:-translate-y-1"
+                >
+                  <Sparkles className="w-5 h-5" />
+                  Analyze My Colors
+                </button>
+              )}
+              
+              {loading && (
+                <div className="mt-6 w-full bg-slate-100 text-slate-500 py-4 px-8 rounded-xl font-medium flex items-center justify-center gap-2 animate-pulse">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Analyzing with AI...
+                </div>
+              )}
+
+              {error && (
+                <div className="mt-6 p-4 bg-red-50 border border-red-100 rounded-xl text-red-600 text-sm flex items-start gap-2 text-left">
+                  <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold">Error:</span> {error}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Results Section */}
+        {result && (
+          <div className="animate-in fade-in zoom-in-95 duration-500">
+            {/* Header Result */}
+            <div className="text-center mb-12">
+              <span className="inline-block py-1 px-3 rounded-full bg-rose-100 text-rose-700 text-xs font-bold uppercase tracking-wider mb-3">
+                Analysis Complete
+              </span>
+              <h2 className="text-5xl font-bold text-slate-900 mb-4">{result.season}</h2>
+              <p className="text-slate-600 max-w-2xl mx-auto text-lg leading-relaxed">
+                {result.reasoning}
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-12 gap-8">
+              
+              {/* Left Column: Image & Stats */}
+              <div className="md:col-span-4 space-y-6">
+                <div className="rounded-3xl overflow-hidden shadow-xl aspect-[3/4] relative">
+                   <img src={previewUrl} alt="Analyzed user" className="w-full h-full object-cover" />
+                   <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-6 pt-20">
+                      <div className="text-white">
+                        <p className="text-xs opacity-80 uppercase tracking-widest">Confidence</p>
+                        <p className="font-semibold">{result.confidence}</p>
+                      </div>
+                   </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-200">
+                  <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <Info className="w-4 h-4 text-rose-500" />
+                    Key Characteristics
+                  </h3>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center pb-2 border-b border-stone-100">
+                      <span className="text-slate-500 text-sm">Undertone</span>
+                      <span className="font-medium text-slate-800">{result.characteristics.undertone}</span>
+                    </div>
+                    <div className="flex justify-between items-center pb-2 border-b border-stone-100">
+                      <span className="text-slate-500 text-sm">Contrast</span>
+                      <span className="font-medium text-slate-800">{result.characteristics.contrast}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500 text-sm">Dominant</span>
+                      <span className="font-medium text-slate-800">{result.characteristics.primary_feature}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Palette & Advice */}
+              <div className="md:col-span-8 space-y-8">
+                
+                {/* Best Colors */}
+                <div className="bg-white p-8 rounded-3xl shadow-sm border border-stone-200">
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                      <Palette className="w-6 h-6 text-rose-500" />
+                      Your Power Palette
+                    </h3>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                    {result.palette.map((color, idx) => (
+                      <ColorSwatch key={idx} {...color} />
+                    ))}
+                  </div>
+                  <div className="mt-6 p-4 bg-stone-50 rounded-xl text-sm text-stone-600 italic">
+                    These colors harmonize with your natural features, making your skin look clearer and your eyes brighter.
+                  </div>
+                </div>
+
+                {/* Fashion & Style */}
+                <div className="bg-slate-900 text-white p-8 rounded-3xl shadow-xl">
+                  <h3 className="text-2xl font-bold mb-4 flex items-center gap-2">
+                    <Shirt className="w-6 h-6 text-rose-400" />
+                    Style Guide
+                  </h3>
+                  <p className="text-slate-300 leading-relaxed text-lg mb-6">
+                    {result.fashion_advice}
+                  </p>
+                  
+                  {result.worst_colors && (
+                    <div className="border-t border-slate-700 pt-6">
+                      <h4 className="text-sm font-semibold uppercase tracking-wider text-rose-400 mb-4">Colors to Avoid</h4>
+                      <div className="flex gap-3">
+                        {result.worst_colors.map((color, idx) => (
+                          <div key={idx} className="flex items-center gap-2 bg-slate-800 pr-3 rounded-full">
+                            <div className="w-8 h-8 rounded-full border border-slate-600" style={{ backgroundColor: color.hex }}></div>
+                            <span className="text-xs text-slate-300">{color.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <button 
+                  onClick={resetApp}
+                  className="w-full py-4 rounded-xl border-2 border-slate-200 text-slate-600 font-semibold hover:border-rose-500 hover:text-rose-600 transition-colors"
+                >
+                  Analyze Another Photo
+                </button>
+
+              </div>
+            </div>
+          </div>
+        )}
+
+      </main>
+    </div>
+  );
+}
+
