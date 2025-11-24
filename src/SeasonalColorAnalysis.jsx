@@ -215,6 +215,15 @@ export default function SeasonalColorAnalysis() {
         return;
       }
 
+      // Stop any existing stream first
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+      }
+
+      setError(null);
+      setIsCameraActive(true);
+      setIsVideoReady(false);
+
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { 
           facingMode: 'user',
@@ -222,23 +231,16 @@ export default function SeasonalColorAnalysis() {
           height: { ideal: 720 }
         } 
       });
-      setCameraStream(stream);
-      setIsCameraActive(true);
-      setIsVideoReady(false);
-      setError(null);
       
+      setCameraStream(stream);
+      
+      // Set stream to video element and ensure it plays
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        
-        // Wait for video to be ready before allowing capture
-        videoRef.current.onloadedmetadata = () => {
-          videoRef.current.play().then(() => {
-            setIsVideoReady(true);
-          }).catch((playErr) => {
-            console.error('Error playing video:', playErr);
-            setError('無法播放相機畫面。請確認已授予相機權限。');
-          });
-        };
+        // Force play on mobile devices
+        videoRef.current.play().catch(err => {
+          console.error('Auto-play failed, will wait for user interaction:', err);
+        });
       }
     } catch (err) {
       console.error('Error accessing camera:', err);
@@ -272,23 +274,17 @@ export default function SeasonalColorAnalysis() {
   };
 
   const capturePhoto = () => {
-    if (!videoRef.current || !canvasRef.current) {
-      setError('無法擷取照片。請重試。');
-      return;
-    }
-
     const video = videoRef.current;
     const canvas = canvasRef.current;
     
-    // Check if video is ready
-    if (!isVideoReady || video.readyState < 2) {
-      setError('相機尚未準備好。請稍候片刻再試。');
+    if (!video || !canvas) {
+      setError('無法擷取照片。請重試。');
       return;
     }
 
     // Check if video has valid dimensions
     if (video.videoWidth === 0 || video.videoHeight === 0) {
-      setError('無法取得有效的影像尺寸。請重試。');
+      setError('無法取得有效的影像尺寸。請稍候片刻再試。');
       return;
     }
 
@@ -317,7 +313,7 @@ export default function SeasonalColorAnalysis() {
       stopCamera();
     } catch (err) {
       console.error('Error capturing photo:', err);
-      setError('擷取照片時發生錯誤。請重試。');
+      setError('擷取照片時發生錯誤：' + err.message);
     }
   };
 
@@ -331,6 +327,74 @@ export default function SeasonalColorAnalysis() {
     setIsVideoReady(false);
     if(fileInputRef.current) fileInputRef.current.value = "";
   };
+
+  // Handle video element setup and cleanup
+  useEffect(() => {
+    const video = videoRef.current;
+    
+    if (!video || !cameraStream) {
+      setIsVideoReady(false);
+      return;
+    }
+
+    // Ensure video has the stream
+    if (video.srcObject !== cameraStream) {
+      video.srcObject = cameraStream;
+    }
+
+    const handleLoadedMetadata = () => {
+      // Video metadata loaded, try to play
+      video.play()
+        .then(() => {
+          setIsVideoReady(true);
+        })
+        .catch((err) => {
+          console.error('Error playing video:', err);
+          // Don't set error here, video might play on user interaction
+          setIsVideoReady(false);
+        });
+    };
+
+    const handlePlaying = () => {
+      setIsVideoReady(true);
+    };
+
+    const handleCanPlay = () => {
+      // Video can start playing
+      if (video.paused) {
+        video.play().catch(err => {
+          console.error('Play error:', err);
+        });
+      }
+    };
+
+    const handleError = (err) => {
+      console.error('Video error:', err);
+      setError('相機畫面載入錯誤。');
+      setIsVideoReady(false);
+    };
+
+    // Add event listeners
+    video.addEventListener('loadedmetadata', handleLoadedMetadata);
+    video.addEventListener('playing', handlePlaying);
+    video.addEventListener('canplay', handleCanPlay);
+    video.addEventListener('error', handleError);
+
+    // Try to play immediately if stream is already set
+    if (video.srcObject && video.readyState >= 2) {
+      video.play().catch(() => {
+        // Will play when user interacts
+      });
+    }
+
+    // Cleanup
+    return () => {
+      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      video.removeEventListener('playing', handlePlaying);
+      video.removeEventListener('canplay', handleCanPlay);
+      video.removeEventListener('error', handleError);
+    };
+  }, [isCameraActive, cameraStream]);
 
   // Cleanup camera stream on unmount
   useEffect(() => {
@@ -429,14 +493,9 @@ export default function SeasonalColorAnalysis() {
                         </button>
                         <button
                           onClick={capturePhoto}
-                          disabled={!isVideoReady}
-                          className={`px-6 py-3 rounded-xl font-medium transition-all shadow-lg ${
-                            isVideoReady 
-                              ? 'bg-rose-500 text-white hover:bg-rose-600' 
-                              : 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                          }`}
+                          className="px-6 py-3 bg-rose-500 text-white rounded-xl font-medium hover:bg-rose-600 transition-all shadow-lg"
                         >
-                          {isVideoReady ? '拍攝' : '準備中...'}
+                          拍攝
                         </button>
                       </div>
                     </div>
