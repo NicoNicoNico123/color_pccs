@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OG Image Tester</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .test-link {
+            display: block;
+            margin: 10px 0;
+            padding: 10px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            text-decoration: none;
+            color: #0066cc;
+        }
+        .test-link:hover {
+            background: #e0e0e0;
+        }
+        .meta-info {
+            background: #f9f9f9;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Open Graph Image Testing</h1>
+    
+    <div class="test-section">
+        <h2>1. Test Your Site URL</h2>
+        <p>Your site URL: <strong>https://niconiconico123.github.io/color_pccs/</strong></p>
+        <p>OG Image URL: <strong>https://niconiconico123.github.io/color_pccs/ogimage.png</strong></p>
+    </div>
+
+    <div class="test-section">
+        <h2>2. Online Validators</h2>
+        <a href="https://developers.facebook.com/tools/debug/?q=https://niconiconico123.github.io/color_pccs/" 
+           target="_blank" class="test-link">
+            🔵 Facebook Sharing Debugger
+        </a>
+        <a href="https://cards-dev.twitter.com/validator" 
+           target="_blank" class="test-link">
+            🐦 Twitter Card Validator
+        </a>
+        <a href="https://www.linkedin.com/post-inspector/" 
+           target="_blank" class="test-link">
+            💼 LinkedIn Post Inspector
+        </a>
+        <a href="https://www.opengraph.xyz/url/https://niconiconico123.github.io/color_pccs/" 
+           target="_blank" class="test-link">
+            🔍 OpenGraph.xyz Validator
+        </a>
+        <a href="https://metatags.io/" 
+           target="_blank" class="test-link">
+            🏷️ MetaTags.io Validator
+        </a>
+    </div>
+
+    <div class="test-section">
+        <h2>3. Direct Image Check</h2>
+        <p>Test if the image is accessible:</p>
+        <a href="https://niconiconico123.github.io/color_pccs/ogimage.png" 
+           target="_blank" class="test-link">
+            Open OG Image Directly
+        </a>
+        <p>If this link works, the image is accessible.</p>
+    </div>
+
+    <div class="test-section">
+        <h2>4. View Page Source</h2>
+        <p>Check the HTML source of your deployed page:</p>
+        <a href="https://niconiconico123.github.io/color_pccs/" 
+           target="_blank" class="test-link">
+            View Deployed Site
+        </a>
+        <p>Then right-click → "View Page Source" and search for "og:image"</p>
+    </div>
+
+    <div class="test-section">
+        <h2>5. Expected Meta Tags</h2>
+        <div class="meta-info">
+            &lt;meta property="og:image" content="https://niconiconico123.github.io/color_pccs/ogimage.png" /&gt;<br>
+            &lt;meta property="og:image:width" content="1200" /&gt;<br>
+            &lt;meta property="og:image:height" content="630" /&gt;<br>
+            &lt;meta name="twitter:image" content="https://niconiconico123.github.io/color_pccs/ogimage.png" /&gt;
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>⚠️ Important Notes</h2>
+        <ul>
+            <li><strong>Cache:</strong> Social media platforms cache OG images. Use "Scrape Again" in Facebook Debugger to refresh.</li>
+            <li><strong>HTTPS:</strong> OG images must be served over HTTPS (GitHub Pages does this automatically).</li>
+            <li><strong>Image Size:</strong> Your current image is 5.1MB. Consider optimizing to &lt;1MB for faster loading.</li>
+            <li><strong>Dimensions:</strong> Recommended size is 1200x630px. Your image is 2528x1696px, which should still work.</li>
+            <li><strong>Deployment:</strong> Make sure you've deployed the latest version with the OG tags.</li>
+        </ul>
+    </div>
+</body>
+</html>
+
