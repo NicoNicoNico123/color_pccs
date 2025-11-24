@@ -103,6 +103,7 @@ export default function SeasonalColorAnalysis() {
   const [error, setError] = useState(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [cameraStream, setCameraStream] = useState(null);
+  const [isVideoReady, setIsVideoReady] = useState(false);
   const fileInputRef = useRef(null);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -208,6 +209,12 @@ export default function SeasonalColorAnalysis() {
 
   const startCamera = async () => {
     try {
+      // Check if getUserMedia is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setError('您的瀏覽器不支援相機功能。請使用現代瀏覽器（Chrome、Safari、Firefox）。');
+        return;
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { 
           facingMode: 'user',
@@ -217,14 +224,37 @@ export default function SeasonalColorAnalysis() {
       });
       setCameraStream(stream);
       setIsCameraActive(true);
+      setIsVideoReady(false);
       setError(null);
+      
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        
+        // Wait for video to be ready before allowing capture
+        videoRef.current.onloadedmetadata = () => {
+          videoRef.current.play().then(() => {
+            setIsVideoReady(true);
+          }).catch((playErr) => {
+            console.error('Error playing video:', playErr);
+            setError('無法播放相機畫面。請確認已授予相機權限。');
+          });
+        };
       }
     } catch (err) {
       console.error('Error accessing camera:', err);
-      setError('無法存取相機。請確認您已授予相機權限。');
+      let errorMessage = '無法存取相機。';
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        errorMessage = '相機權限被拒絕。請在瀏覽器設定中允許相機存取權限。';
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        errorMessage = '找不到相機裝置。請確認您的裝置有相機功能。';
+      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+        errorMessage = '相機無法使用。可能正被其他應用程式使用中。';
+      } else if (err.name === 'OverconstrainedError') {
+        errorMessage = '相機不支援要求的設定。';
+      }
+      setError(errorMessage);
       setIsCameraActive(false);
+      setIsVideoReady(false);
     }
   };
 
@@ -233,29 +263,61 @@ export default function SeasonalColorAnalysis() {
       cameraStream.getTracks().forEach(track => track.stop());
       setCameraStream(null);
       setIsCameraActive(false);
+      setIsVideoReady(false);
       if (videoRef.current) {
         videoRef.current.srcObject = null;
+        videoRef.current.onloadedmetadata = null;
       }
     }
   };
 
   const capturePhoto = () => {
-    if (videoRef.current && canvasRef.current) {
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
+    if (!videoRef.current || !canvasRef.current) {
+      setError('無法擷取照片。請重試。');
+      return;
+    }
+
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    
+    // Check if video is ready
+    if (!isVideoReady || video.readyState < 2) {
+      setError('相機尚未準備好。請稍候片刻再試。');
+      return;
+    }
+
+    // Check if video has valid dimensions
+    if (video.videoWidth === 0 || video.videoHeight === 0) {
+      setError('無法取得有效的影像尺寸。請重試。');
+      return;
+    }
+
+    try {
       const context = canvas.getContext('2d');
       
+      // Set canvas dimensions to match video
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
+      
+      // Draw video frame to canvas
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
       
+      // Convert to base64
       const base64String = canvas.toDataURL('image/jpeg', 0.9);
+      
+      if (!base64String || base64String === 'data:,') {
+        throw new Error('無法轉換影像。');
+      }
+      
       setImage(base64String);
       setPreviewUrl(base64String);
       setResult(null);
       setError(null);
       
       stopCamera();
+    } catch (err) {
+      console.error('Error capturing photo:', err);
+      setError('擷取照片時發生錯誤。請重試。');
     }
   };
 
@@ -266,6 +328,7 @@ export default function SeasonalColorAnalysis() {
     setResult(null);
     setError(null);
     setIsCameraActive(false);
+    setIsVideoReady(false);
     if(fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -345,8 +408,17 @@ export default function SeasonalColorAnalysis() {
                       ref={videoRef}
                       autoPlay
                       playsInline
+                      muted
                       className="w-full h-full object-cover"
                     />
+                    {!isVideoReady && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                        <div className="text-white text-center">
+                          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
+                          <p className="text-sm">正在啟動相機...</p>
+                        </div>
+                      </div>
+                    )}
                     <div className="absolute inset-0 flex items-end justify-center p-6 bg-gradient-to-t from-black/60 to-transparent">
                       <div className="flex gap-3">
                         <button
@@ -357,9 +429,14 @@ export default function SeasonalColorAnalysis() {
                         </button>
                         <button
                           onClick={capturePhoto}
-                          className="px-6 py-3 bg-rose-500 text-white rounded-xl font-medium hover:bg-rose-600 transition-all shadow-lg"
+                          disabled={!isVideoReady}
+                          className={`px-6 py-3 rounded-xl font-medium transition-all shadow-lg ${
+                            isVideoReady 
+                              ? 'bg-rose-500 text-white hover:bg-rose-600' 
+                              : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                          }`}
                         >
-                          拍攝
+                          {isVideoReady ? '拍攝' : '準備中...'}
                         </button>
                       </div>
                     </div>
