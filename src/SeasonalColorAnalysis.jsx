@@ -101,9 +101,7 @@ export default function SeasonalColorAnalysis() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
-  const [isCameraActive, setIsCameraActive] = useState(false);
-  const [cameraStream, setCameraStream] = useState(null);
-  const [isVideoReady, setIsVideoReady] = useState(false);
+  const [isCapturing, setIsCapturing] = useState(false);
   const fileInputRef = useRef(null);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -207,7 +205,9 @@ export default function SeasonalColorAnalysis() {
     }
   };
 
-  const startCamera = async () => {
+  const capturePhoto = async () => {
+    let stream = null;
+    
     try {
       // Check if getUserMedia is available
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -215,16 +215,11 @@ export default function SeasonalColorAnalysis() {
         return;
       }
 
-      // Stop any existing stream first
-      if (cameraStream) {
-        cameraStream.getTracks().forEach(track => track.stop());
-      }
-
+      setIsCapturing(true);
       setError(null);
-      setIsCameraActive(true);
-      setIsVideoReady(false);
 
-      const stream = await navigator.mediaDevices.getUserMedia({ 
+      // Get camera stream
+      stream = await navigator.mediaDevices.getUserMedia({ 
         video: { 
           facingMode: 'user',
           width: { ideal: 1280 },
@@ -232,63 +227,56 @@ export default function SeasonalColorAnalysis() {
         } 
       });
       
-      setCameraStream(stream);
-      
-      // Set stream to video element and ensure it plays
+      // Set stream to hidden video element
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        // Force play on mobile devices
-        videoRef.current.play().catch(err => {
-          console.error('Auto-play failed, will wait for user interaction:', err);
+        
+        // Wait for video to be ready
+        await new Promise((resolve, reject) => {
+          const video = videoRef.current;
+          
+          const handleLoadedMetadata = () => {
+            video.play()
+              .then(() => {
+                // Wait a bit for the video to stabilize
+                setTimeout(() => {
+                  resolve();
+                }, 200);
+              })
+              .catch(reject);
+          };
+          
+          const handleError = (err) => {
+            reject(err);
+          };
+          
+          video.addEventListener('loadedmetadata', handleLoadedMetadata, { once: true });
+          video.addEventListener('error', handleError, { once: true });
+          
+          // Fallback timeout
+          setTimeout(() => {
+            if (video.readyState >= 2) {
+              resolve();
+            } else {
+              reject(new Error('Video not ready'));
+            }
+          }, 3000);
         });
       }
-    } catch (err) {
-      console.error('Error accessing camera:', err);
-      let errorMessage = '無法存取相機。';
-      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        errorMessage = '相機權限被拒絕。請在瀏覽器設定中允許相機存取權限。';
-      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-        errorMessage = '找不到相機裝置。請確認您的裝置有相機功能。';
-      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
-        errorMessage = '相機無法使用。可能正被其他應用程式使用中。';
-      } else if (err.name === 'OverconstrainedError') {
-        errorMessage = '相機不支援要求的設定。';
+
+      // Capture the photo
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      
+      if (!video || !canvas) {
+        throw new Error('無法擷取照片。請重試。');
       }
-      setError(errorMessage);
-      setIsCameraActive(false);
-      setIsVideoReady(false);
-    }
-  };
 
-  const stopCamera = () => {
-    if (cameraStream) {
-      cameraStream.getTracks().forEach(track => track.stop());
-      setCameraStream(null);
-      setIsCameraActive(false);
-      setIsVideoReady(false);
-      if (videoRef.current) {
-        videoRef.current.srcObject = null;
-        videoRef.current.onloadedmetadata = null;
+      // Check if video has valid dimensions
+      if (video.videoWidth === 0 || video.videoHeight === 0) {
+        throw new Error('無法取得有效的影像尺寸。');
       }
-    }
-  };
 
-  const capturePhoto = () => {
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    
-    if (!video || !canvas) {
-      setError('無法擷取照片。請重試。');
-      return;
-    }
-
-    // Check if video has valid dimensions
-    if (video.videoWidth === 0 || video.videoHeight === 0) {
-      setError('無法取得有效的影像尺寸。請稍候片刻再試。');
-      return;
-    }
-
-    try {
       const context = canvas.getContext('2d');
       
       // Set canvas dimensions to match video
@@ -310,100 +298,46 @@ export default function SeasonalColorAnalysis() {
       setResult(null);
       setError(null);
       
-      stopCamera();
     } catch (err) {
       console.error('Error capturing photo:', err);
-      setError('擷取照片時發生錯誤：' + err.message);
+      let errorMessage = '無法擷取照片。';
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        errorMessage = '相機權限被拒絕。請在瀏覽器設定中允許相機存取權限。';
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        errorMessage = '找不到相機裝置。請確認您的裝置有相機功能。';
+      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+        errorMessage = '相機無法使用。可能正被其他應用程式使用中。';
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      setError(errorMessage);
+    } finally {
+      // Stop the camera stream
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
+      setIsCapturing(false);
     }
   };
 
   const resetApp = () => {
-    stopCamera();
+    // Stop any active camera stream
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject;
+      stream.getTracks().forEach(track => track.stop());
+      videoRef.current.srcObject = null;
+    }
+    
     setImage(null);
     setPreviewUrl(null);
     setResult(null);
     setError(null);
-    setIsCameraActive(false);
-    setIsVideoReady(false);
+    setIsCapturing(false);
     if(fileInputRef.current) fileInputRef.current.value = "";
   };
-
-  // Handle video element setup and cleanup
-  useEffect(() => {
-    const video = videoRef.current;
-    
-    if (!video || !cameraStream) {
-      setIsVideoReady(false);
-      return;
-    }
-
-    // Ensure video has the stream
-    if (video.srcObject !== cameraStream) {
-      video.srcObject = cameraStream;
-    }
-
-    const handleLoadedMetadata = () => {
-      // Video metadata loaded, try to play
-      video.play()
-        .then(() => {
-          setIsVideoReady(true);
-        })
-        .catch((err) => {
-          console.error('Error playing video:', err);
-          // Don't set error here, video might play on user interaction
-          setIsVideoReady(false);
-        });
-    };
-
-    const handlePlaying = () => {
-      setIsVideoReady(true);
-    };
-
-    const handleCanPlay = () => {
-      // Video can start playing
-      if (video.paused) {
-        video.play().catch(err => {
-          console.error('Play error:', err);
-        });
-      }
-    };
-
-    const handleError = (err) => {
-      console.error('Video error:', err);
-      setError('相機畫面載入錯誤。');
-      setIsVideoReady(false);
-    };
-
-    // Add event listeners
-    video.addEventListener('loadedmetadata', handleLoadedMetadata);
-    video.addEventListener('playing', handlePlaying);
-    video.addEventListener('canplay', handleCanPlay);
-    video.addEventListener('error', handleError);
-
-    // Try to play immediately if stream is already set
-    if (video.srcObject && video.readyState >= 2) {
-      video.play().catch(() => {
-        // Will play when user interacts
-      });
-    }
-
-    // Cleanup
-    return () => {
-      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
-      video.removeEventListener('playing', handlePlaying);
-      video.removeEventListener('canplay', handleCanPlay);
-      video.removeEventListener('error', handleError);
-    };
-  }, [isCameraActive, cameraStream]);
-
-  // Cleanup camera stream on unmount
-  useEffect(() => {
-    return () => {
-      if (cameraStream) {
-        cameraStream.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, [cameraStream]);
 
   const ColorSwatch = ({ hex, name, reason }) => (
     <div className="flex flex-col group cursor-pointer">
@@ -440,7 +374,7 @@ export default function SeasonalColorAnalysis() {
 
             <div className="relative max-w-md mx-auto">
               {/* Mode Selection Buttons */}
-              {!previewUrl && !isCameraActive && (
+              {!previewUrl && (
                 <div className="mb-4 flex gap-2 justify-center">
                   <button
                     onClick={() => fileInputRef.current?.click()}
@@ -450,11 +384,25 @@ export default function SeasonalColorAnalysis() {
                     上傳照片
                   </button>
                   <button
-                    onClick={startCamera}
-                    className="flex-1 py-3 px-4 rounded-xl bg-white border-2 border-stone-300 hover:border-rose-400 text-slate-700 font-medium transition-all flex items-center justify-center gap-2"
+                    onClick={capturePhoto}
+                    disabled={isCapturing}
+                    className={`flex-1 py-3 px-4 rounded-xl border-2 font-medium transition-all flex items-center justify-center gap-2 ${
+                      isCapturing
+                        ? 'bg-stone-100 border-stone-300 text-stone-400 cursor-not-allowed'
+                        : 'bg-white border-stone-300 hover:border-rose-400 text-slate-700'
+                    }`}
                   >
-                    <Camera className="w-5 h-5" />
-                    拍攝照片
+                    {isCapturing ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        拍攝中...
+                      </>
+                    ) : (
+                      <>
+                        <Camera className="w-5 h-5" />
+                        拍攝照片
+                      </>
+                    )}
                   </button>
                 </div>
               )}
@@ -463,44 +411,10 @@ export default function SeasonalColorAnalysis() {
               <div 
                 className={`
                   relative aspect-[4/5] rounded-3xl overflow-hidden bg-white shadow-xl border-2 border-dashed transition-all
-                  ${previewUrl || isCameraActive ? 'border-rose-500' : 'border-stone-300 hover:border-rose-400 hover:bg-stone-50'}
+                  ${previewUrl ? 'border-rose-500' : 'border-stone-300 hover:border-rose-400 hover:bg-stone-50'}
                 `}
               >
-                {isCameraActive ? (
-                  <div className="relative w-full h-full">
-                    <video
-                      ref={videoRef}
-                      autoPlay
-                      playsInline
-                      muted
-                      className="w-full h-full object-cover"
-                    />
-                    {!isVideoReady && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                        <div className="text-white text-center">
-                          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
-                          <p className="text-sm">正在啟動相機...</p>
-                        </div>
-                      </div>
-                    )}
-                    <div className="absolute inset-0 flex items-end justify-center p-6 bg-gradient-to-t from-black/60 to-transparent">
-                      <div className="flex gap-3">
-                        <button
-                          onClick={stopCamera}
-                          className="px-6 py-3 bg-white/20 backdrop-blur-sm text-white rounded-xl font-medium hover:bg-white/30 transition-all"
-                        >
-                          取消
-                        </button>
-                        <button
-                          onClick={capturePhoto}
-                          className="px-6 py-3 bg-rose-500 text-white rounded-xl font-medium hover:bg-rose-600 transition-all shadow-lg"
-                        >
-                          拍攝
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ) : previewUrl ? (
+                {previewUrl ? (
                   <img src={previewUrl} alt="上傳預覽" className="w-full h-full object-cover" />
                 ) : (
                   <label className="flex flex-col items-center justify-center w-full h-full cursor-pointer group">
@@ -519,7 +433,7 @@ export default function SeasonalColorAnalysis() {
                   </label>
                 )}
 
-                {previewUrl && !isCameraActive && (
+                {previewUrl && (
                   <button 
                     onClick={resetApp}
                     className="absolute top-4 right-4 bg-white/90 p-2 rounded-full text-slate-600 hover:text-red-500 shadow-lg backdrop-blur-sm"
@@ -529,7 +443,8 @@ export default function SeasonalColorAnalysis() {
                 )}
               </div>
 
-              {/* Hidden canvas for photo capture */}
+              {/* Hidden video and canvas for photo capture */}
+              <video ref={videoRef} autoPlay playsInline muted className="hidden" />
               <canvas ref={canvasRef} className="hidden" />
 
               {/* Action Button */}
